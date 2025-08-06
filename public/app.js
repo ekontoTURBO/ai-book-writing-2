@@ -62,7 +62,7 @@ function renderMainPage() {
     </div>
   `;
   document.getElementById('start-btn').onclick = () => {
-    window.location.href = 'generation.html';
+    window.location.href = './generation.html';
   };
 }
 
