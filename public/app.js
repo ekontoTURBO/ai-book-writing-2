@@ -1,7 +1,7 @@
 // Story Generator Chat App
 // Gemini 2.5 Flash Thinking API integration
 
-const GEMINI_API_KEY = 'AIzaSyBpBc5dNQzOgm8se_neUXwPGxS2_Nk9rRU';
+const GEMINI_API_KEY = '';
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-thinking-exp-1219:generateContent';
 
 const inputPrompts = [
