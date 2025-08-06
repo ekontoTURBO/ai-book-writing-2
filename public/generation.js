@@ -1,6 +1,6 @@
-// New Generation System - Clean and Simple
-const GEMINI_API_KEY = 'AIzaSyBpBc5dNQzOgm8se_neUXwPGxS2_Nk9rRU';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+// New Generation System - Updated for new layout
+// Secure API integration via Render backend
+const GEMINI_ENDPOINT = 'https://cognibook-geminiapi.onrender.com/api/generate';
 
 const inputPrompts = [
   { key: 'topic', label: "What's your story about?" },
@@ -16,78 +16,102 @@ let chapters = [];
 let summaries = [];
 let currentChapter = 1;
 let isGenerating = false;
+let history = JSON.parse(localStorage.getItem('storyHistory') || '[]');
 
 // DOM Elements
-const generationApp = document.getElementById('generation-app');
+const bookFormContainer = document.getElementById('book-form-container');
+const chapterScroll = document.getElementById('chapter-scroll');
+const historyList = document.getElementById('history-list');
+const newBookBtn = document.getElementById('new-book-btn');
 
 function initGeneration() {
   console.log('Initializing generation page...');
-  renderInputForm();
+  renderBookForm();
+  renderHistory();
+  
+  // Event listeners
+  newBookBtn.addEventListener('click', showNewBookForm);
 }
 
-function renderInputForm() {
-  generationApp.innerHTML = `
-    <div class="generation-container">
-      <div class="input-section">
-        <h2>Create Your Story</h2>
-        <div class="input-fields">
-          ${inputPrompts.map(p => `
-            <div class="input-group">
-              <label for="${p.key}">${p.label}</label>
-              <input type="text" id="${p.key}" placeholder="Enter ${p.label.toLowerCase()}" required />
-            </div>
-          `).join('')}
+function renderBookForm() {
+  bookFormContainer.innerHTML = `
+    <div class="book-form-title">Create Your Story</div>
+    <form id="book-creation-form">
+      ${inputPrompts.map(p => `
+        <div class="input-row">
+          <label for="${p.key}" class="input-label">${p.label}</label>
+          <input type="text" id="${p.key}" class="input-field" placeholder="Enter ${p.label.toLowerCase()}" required />
         </div>
-        <button id="generate-btn" class="generate-button">Generate Story</button>
-        <div id="error-display" class="error-message hidden"></div>
-      </div>
-      
-      <div id="generation-area" class="generation-area hidden">
-        <div id="loading-animation" class="loading-container">
-          <div class="book-animation">
-            <div class="book">
-              <div class="book-cover">
-                <div class="book-spine"></div>
-                <div class="book-pages">
-                  <div class="page"></div>
-                  <div class="page"></div>
-                  <div class="page"></div>
-                </div>
-              </div>
-            </div>
-            <p class="loading-text">✍️ Writing your story...</p>
-          </div>
-        </div>
-        
-        <div id="story-display" class="story-display hidden">
-          <div class="story-header">
-            <h3 id="chapter-title">Chapter 1</h3>
-            <div class="progress-bar">
-              <div id="progress-fill" class="progress-fill"></div>
-            </div>
-          </div>
-          
-          <div class="book-page">
-            <div id="story-content" class="story-content"></div>
-          </div>
-          
-          <div class="story-controls">
-            <button id="next-chapter-btn" class="control-btn">Generate Next Chapter</button>
-            <button id="back-to-start-btn" class="control-btn secondary">Start New Story</button>
-          </div>
-        </div>
-      </div>
-    </div>
+      `).join('')}
+      <button type="submit" class="generate-btn">Generate Story</button>
+    </form>
+    <div id="error-display" class="error-message hidden" style="margin-top: 1em; color: #ff6b6b; text-align: center;"></div>
   `;
   
-  // Attach event listeners
-  document.getElementById('generate-btn').addEventListener('click', startGeneration);
+  // Attach form submission handler
+  document.getElementById('book-creation-form').addEventListener('submit', handleBookCreation);
 }
 
-function startGeneration() {
-  console.log('Starting story generation...');
+function renderHistory() {
+  if (!historyList) return;
   
-  // Collect and validate inputs
+  historyList.innerHTML = '';
+  
+  if (history.length === 0) {
+    historyList.innerHTML = '<li style="color: #aaffd6; text-align: center; padding: 2em;">No books created yet. Click "+ New Book" to start!</li>';
+    return;
+  }
+  
+  history.forEach((book, index) => {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+    li.innerHTML = `
+      <div style="font-weight: 600; margin-bottom: 0.3em;">${book.topic}</div>
+      <div style="font-size: 0.9em; color: #aaffd6;">${book.chapters.length}/${book.length} chapters</div>
+    `;
+    li.onclick = () => viewHistoryBook(index);
+    historyList.appendChild(li);
+  });
+}
+
+function showNewBookForm() {
+  // Reset state
+  chapters = [];
+  summaries = [];
+  currentChapter = 1;
+  userInputs = {};
+  
+  // Show form, hide chapter view
+  bookFormContainer.style.display = 'block';
+  chapterScroll.style.display = 'none';
+  
+  renderBookForm();
+}
+
+function viewHistoryBook(index) {
+  const book = history[index];
+  bookFormContainer.style.display = 'none';
+  chapterScroll.style.display = 'block';
+  
+  chapterScroll.innerHTML = '';
+  
+  book.chapters.forEach((chapter, i) => {
+    const chapterHeader = document.createElement('div');
+    chapterHeader.className = 'chapter-header';
+    chapterHeader.textContent = `Chapter ${i + 1} of ${book.length}`;
+    chapterScroll.appendChild(chapterHeader);
+    
+    const chapterMessage = document.createElement('div');
+    chapterMessage.className = 'chapter-message';
+    chapterMessage.innerHTML = formatStoryText(chapter);
+    chapterScroll.appendChild(chapterMessage);
+  });
+}
+
+function handleBookCreation(e) {
+  e.preventDefault();
+  
+  // Collect inputs
   userInputs = {};
   let allFilled = true;
   
@@ -120,9 +144,10 @@ function startGeneration() {
   currentChapter = 1;
   isGenerating = false;
   
-  // Hide input form and show generation area
-  document.querySelector('.input-section').classList.add('hidden');
-  document.getElementById('generation-area').classList.remove('hidden');
+  // Hide form and show chapter area
+  bookFormContainer.style.display = 'none';
+  chapterScroll.style.display = 'block';
+  chapterScroll.innerHTML = '';
   
   // Start generating first chapter
   generateChapter();
@@ -134,9 +159,12 @@ function generateChapter() {
   
   console.log(`Generating chapter ${currentChapter}/${userInputs.length}`);
   
-  // Show loading animation
-  document.getElementById('loading-animation').classList.remove('hidden');
-  document.getElementById('story-display').classList.add('hidden');
+  // Show loading message
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'chapter-message';
+  loadingDiv.innerHTML = '✍️ Writing your story... Please wait.';
+  loadingDiv.id = 'loading-message';
+  chapterScroll.appendChild(loadingDiv);
   
   // Create the prompt and call API
   const prompt = createStoryPrompt();
@@ -165,11 +193,11 @@ async function callGeminiAPI(prompt) {
   try {
     console.log('Calling Gemini API...');
     
-    const response = await fetch(GEMINI_ENDPOINT + `?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(GEMINI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        prompt: prompt
       })
     });
     
@@ -179,11 +207,11 @@ async function callGeminiAPI(prompt) {
     
     const data = await response.json();
     
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+    if (!data.text) {
       throw new Error('No content received from API');
     }
     
-    const fullText = data.candidates[0].content.parts[0].text || '';
+    const fullText = data.text;
     console.log('Received response from Gemini');
     
     // Process the response
@@ -194,10 +222,9 @@ async function callGeminiAPI(prompt) {
     showErrorMessage('Failed to generate story. Please try again.');
     isGenerating = false;
     
-    // Show input form again on error
-    document.getElementById('loading-animation').classList.add('hidden');
-    document.querySelector('.input-section').classList.remove('hidden');
-    document.getElementById('generation-area').classList.add('hidden');
+    // Remove loading message
+    const loadingMsg = document.getElementById('loading-message');
+    if (loadingMsg) loadingMsg.remove();
   }
 }
 
@@ -218,51 +245,75 @@ function processStoryResponse(fullText) {
     summaries.push(summary);
   }
   
-  // Hide loading and show story
-  document.getElementById('loading-animation').classList.add('hidden');
-  document.getElementById('story-display').classList.remove('hidden');
+  // Remove loading message
+  const loadingMsg = document.getElementById('loading-message');
+  if (loadingMsg) loadingMsg.remove();
   
-  // Update the display
-  updateStoryDisplay();
+  // Add chapter header
+  const chapterHeader = document.createElement('div');
+  chapterHeader.className = 'chapter-header';
+  chapterHeader.textContent = `Chapter ${currentChapter} of ${userInputs.length}`;
+  chapterScroll.appendChild(chapterHeader);
+  
+  // Add chapter content
+  const chapterMessage = document.createElement('div');
+  chapterMessage.className = 'chapter-message';
+  chapterMessage.innerHTML = formatStoryText(storyText);
+  chapterScroll.appendChild(chapterMessage);
+  
+  // Add controls
+  if (currentChapter < userInputs.length) {
+    addFeedbackForm();
+  } else {
+    // Story is complete
+    const completionMsg = document.createElement('div');
+    completionMsg.className = 'chapter-message';
+    completionMsg.style.textAlign = 'center';
+    completionMsg.style.color = '#00e676';
+    completionMsg.innerHTML = '🎉 Story Complete! Your book has been saved to history.';
+    chapterScroll.appendChild(completionMsg);
+    
+    saveStoryToHistory();
+  }
+  
+  // Scroll to bottom
+  chapterScroll.scrollTop = chapterScroll.scrollHeight;
   
   isGenerating = false;
 }
 
-function updateStoryDisplay() {
-  // Update chapter title
-  document.getElementById('chapter-title').textContent = `Chapter ${currentChapter} of ${userInputs.length}`;
+function addFeedbackForm() {
+  const feedbackForm = document.createElement('form');
+  feedbackForm.className = 'feedback-form';
+  feedbackForm.innerHTML = `
+    <div style="font-weight: 600; margin-bottom: 1em; color: #00e676;">Chapter ${currentChapter} Complete</div>
+    <div class="input-row">
+      <label class="input-label">What did you like about this chapter?</label>
+      <input type="text" class="input-field" id="feedback-liked" placeholder="Share what you enjoyed..." />
+    </div>
+    <div class="input-row">
+      <label class="input-label">What would you improve?</label>
+      <input type="text" class="input-field" id="feedback-disliked" placeholder="Share what could be better..." />
+    </div>
+    <button type="submit" class="generate-btn">Generate Next Chapter</button>
+  `;
   
-  // Update progress bar
-  const progressPercent = (currentChapter / userInputs.length) * 100;
-  document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-  
-  // Format and display story content
-  const storyContent = document.getElementById('story-content');
-  const formattedText = formatStoryText(chapters[currentChapter - 1]);
-  storyContent.innerHTML = formattedText;
-  
-  // Update controls
-  const nextBtn = document.getElementById('next-chapter-btn');
-  const backBtn = document.getElementById('back-to-start-btn');
-  
-  if (currentChapter < userInputs.length) {
-    nextBtn.textContent = 'Generate Next Chapter';
-    nextBtn.onclick = () => {
-      currentChapter++;
-      generateChapter();
-    };
-    nextBtn.style.display = 'block';
-  } else {
-    nextBtn.textContent = 'Story Complete!';
-    nextBtn.onclick = () => saveStoryToHistory();
-    nextBtn.classList.add('completed');
-  }
-  
-  backBtn.onclick = () => {
-    // Reset and go back to input form
-    document.querySelector('.input-section').classList.remove('hidden');
-    document.getElementById('generation-area').classList.add('hidden');
+  feedbackForm.onsubmit = (e) => {
+    e.preventDefault();
+    const liked = document.getElementById('feedback-liked').value.trim();
+    const disliked = document.getElementById('feedback-disliked').value.trim();
+    
+    // Store feedback for next chapter
+    if (liked || disliked) {
+      summaries.push(`User feedback: Liked - "${liked}", Suggestions - "${disliked}"`);
+    }
+    
+    feedbackForm.remove();
+    currentChapter++;
+    generateChapter();
   };
+  
+  chapterScroll.appendChild(feedbackForm);
 }
 
 function formatStoryText(text) {
@@ -276,7 +327,7 @@ function formatStoryText(text) {
     
     // Check if it's dialogue (starts with quotes)
     if (paragraph.match(/^["'"]/)) {
-      return `<p class="dialogue">${paragraph}</p>`;
+      return `<p class="dialogue" style="margin-left: 1em; font-style: italic;">${paragraph}</p>`;
     } else {
       return `<p>${paragraph}</p>`;
     }
@@ -284,8 +335,6 @@ function formatStoryText(text) {
 }
 
 function saveStoryToHistory() {
-  const history = JSON.parse(localStorage.getItem('storyHistory') || '[]');
-  
   const newStory = {
     id: Date.now(),
     topic: userInputs.topic,
@@ -308,366 +357,22 @@ function saveStoryToHistory() {
   localStorage.setItem('storyHistory', JSON.stringify(history));
   console.log('Story saved to history');
   
-  // Show completion message
-  showSuccessMessage('Story completed and saved to history!');
+  // Update sidebar
+  renderHistory();
 }
 
 function showErrorMessage(message) {
   const errorDisplay = document.getElementById('error-display');
-  errorDisplay.textContent = message;
-  errorDisplay.classList.remove('hidden');
-  setTimeout(() => {
-    errorDisplay.classList.add('hidden');
-  }, 5000);
-}
-
-function showSuccessMessage(message) {
-  const storyContent = document.getElementById('story-content');
-  const successDiv = document.createElement('div');
-  successDiv.className = 'success-message';
-  successDiv.textContent = message;
-  storyContent.appendChild(successDiv);
-  
-  setTimeout(() => {
-    successDiv.remove();
-  }, 3000);
+  if (errorDisplay) {
+    errorDisplay.textContent = message;
+    errorDisplay.classList.remove('hidden');
+    setTimeout(() => {
+      errorDisplay.classList.add('hidden');
+    }, 5000);
+  }
 }
 
 // Initialize when the page loads
 document.addEventListener('DOMContentLoaded', initGeneration);
 
-const app = document.getElementById('generation-app');
 
-function renderLayout() {
-  app.innerHTML = `
-    <div class="gen-layout">
-      <aside class="gen-sidebar${sidebarOpen ? '' : ' closed'}">
-        <div class="sidebar-header">
-          <span>Book History</span>
-          <button id="toggle-sidebar" class="sidebar-toggle">${sidebarOpen ? '⟨' : '⟩'}</button>
-        </div>
-        <ul id="history-list"></ul>
-      </aside>
-      <main class="gen-main">
-        <form id="input-form" class="full-form">
-          ${inputPrompts.map(p => `
-            <div class="input-row">
-              <label for="${p.key}" class="input-label">${p.label}</label>
-              <input type="text" id="${p.key}" name="${p.key}" class="input-field" required />
-            </div>
-          `).join('')}
-          <button type="submit" class="button">Generate Story</button>
-        </form>
-        <div id="chat-area"></div>
-        <div id="loading-indicator" class="hidden">
-          <span>Writing your story<span class="dots"></span></span>
-        </div>
-        <div id="error-message" class="hidden"></div>
-      </main>
-    </div>
-  `;
-  document.getElementById('toggle-sidebar').onclick = () => {
-    sidebarOpen = !sidebarOpen;
-    renderLayout();
-  };
-  renderHistory();
-  document.getElementById('input-form').onsubmit = handleFormSubmit;
-}
-
-function renderHistory() {
-  const historyList = document.getElementById('history-list');
-  if (!historyList) return;
-  historyList.innerHTML = '';
-  if (history.length === 0) {
-    historyList.innerHTML = '<li class="empty">No books generated yet.</li>';
-    return;
-  }
-  history.forEach((item, idx) => {
-    const li = document.createElement('li');
-    li.className = 'history-item';
-    li.innerHTML = `<strong>${item.topic}</strong> <span>(${item.length} chapters)</span>`;
-    li.onclick = () => showHistoryBook(idx);
-    historyList.appendChild(li);
-  });
-}
-
-function showHistoryBook(idx) {
-  const book = history[idx];
-  const chatArea = document.getElementById('chat-area');
-  chatArea.innerHTML = '';
-  book.chapters.forEach((chapter, i) => {
-    const header = document.createElement('div');
-    header.className = 'chapter-header';
-    header.textContent = `Chapter ${i+1} of ${book.length}`;
-    chatArea.appendChild(header);
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble bubble-ai';
-    bubble.innerHTML = chapter;
-    chatArea.appendChild(bubble);
-  });
-}
-
-window.startStoryGeneration = function() {
-  hideError();
-  chapters = [];
-  summaries = [];
-  currentChapter = 1;
-  feedback = { liked: '', disliked: '' };
-  document.getElementById('chat-area').innerHTML = '';
-  renderProgressBar(0, userInputs.length);
-  generateChapter();
-}
-
-function handleFormSubmit(e) {
-  e.preventDefault();
-  userInputs = {};
-  inputPrompts.forEach(p => {
-    userInputs[p.key] = document.getElementById(p.key).value.trim();
-  });
-  chapters = [];
-  summaries = [];
-  currentChapter = 1;
-  feedback = { liked: '', disliked: '' };
-  // Animate form out
-  const form = document.getElementById('input-form');
-  form.classList.add('fade-out');
-  setTimeout(() => {
-    form.style.display = 'none';
-    showBookWritingAnimation();
-    setTimeout(() => {
-      window.startStoryGeneration();
-    }, 2200);
-  }, 700);
-}
-
-function showBookWritingAnimation() {
-  const chatArea = document.getElementById('chat-area');
-  chatArea.innerHTML = '';
-  const anim = document.createElement('div');
-  anim.className = 'book-writing-anim';
-  anim.innerHTML = `
-    <div class="book-cover">
-      <div class="book-pages">
-        <div class="book-page"></div>
-        <div class="book-page"></div>
-        <div class="book-page"></div>
-      </div>
-      <div class="book-title">Writing your story...</div>
-    </div>
-  `;
-  chatArea.appendChild(anim);
-  // Remove animation after 2s
-  setTimeout(() => {
-    anim.classList.add('fade-out');
-    setTimeout(() => {
-      anim.remove();
-    }, 700);
-  }, 1500);
-}
-
-function showLoading(show) {
-  document.getElementById('loading-indicator').classList.toggle('hidden', !show);
-}
-function showError(msg) {
-  const errorMessage = document.getElementById('error-message');
-  errorMessage.textContent = msg;
-  errorMessage.classList.remove('hidden');
-}
-function hideError() {
-  const errorMessage = document.getElementById('error-message');
-  if (errorMessage) errorMessage.classList.add('hidden');
-}
-
-function scrollToBottom() {
-  setTimeout(() => {
-    const chatArea = document.getElementById('chat-area');
-    chatArea.scrollTop = chatArea.scrollHeight;
-  }, 300);
-}
-
-function renderMessageBubble(text, sender = 'ai') {
-  const chatArea = document.getElementById('chat-area');
-  const bubble = document.createElement('div');
-  bubble.className = 'message-bubble ' + (sender === 'user' ? 'bubble-user' : sender === 'system' ? 'bubble-system' : 'bubble-ai');
-  bubble.innerHTML = text;
-  chatArea.appendChild(bubble);
-  scrollToBottom();
-}
-
-function renderChapterHeader(chapterNum, total) {
-  const chatArea = document.getElementById('chat-area');
-  const header = document.createElement('div');
-  header.className = 'chapter-header';
-  header.textContent = `Chapter ${chapterNum} of ${total}`;
-  chatArea.appendChild(header);
-}
-
-function renderProgressBar(current, total) {
-  let bar = document.getElementById('progress-bar');
-  const chatArea = document.getElementById('chat-area');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'progress-bar';
-    bar.className = 'progress-bar';
-    chatArea.parentNode.insertBefore(bar, chatArea);
-    const progress = document.createElement('div');
-    progress.className = 'progress';
-    progress.style.width = `${(current/total)*100}%`;
-    bar.appendChild(progress);
-  } else {
-    bar.querySelector('.progress').style.width = `${(current/total)*100}%`;
-  }
-}
-
-function renderLayout() {
-  app.innerHTML = `
-    <div class="gen-layout">
-      <aside class="gen-sidebar${sidebarOpen ? '' : ' closed'}">
-        <div class="sidebar-header">
-          <span>Book History</span>
-          <button id="toggle-sidebar" class="sidebar-toggle">${sidebarOpen ? '⟨' : '⟩'}</button>
-        </div>
-        <ul id="history-list"></ul>
-      </aside>
-      <main class="gen-main">
-        <form id="input-form" class="full-form fade-in">
-          ${inputPrompts.map(p => `
-            <div class="input-row">
-              <label for="${p.key}" class="input-label">${p.label}</label>
-              <input type="text" id="${p.key}" name="${p.key}" class="input-field" required />
-            </div>
-          `).join('')}
-          <button type="submit" class="button">Generate Story</button>
-        </form>
-        <div id="chat-area" class="chat-scroll"></div>
-        <div id="loading-indicator" class="hidden">
-          <span>Writing your story<span class="dots"></span></span>
-        </div>
-        <div id="error-message" class="hidden"></div>
-      </main>
-    </div>
-  `;
-  document.getElementById('toggle-sidebar').onclick = () => {
-    sidebarOpen = !sidebarOpen;
-    renderLayout();
-  };
-  renderHistory();
-  document.getElementById('input-form').onsubmit = handleFormSubmit;
-}
-
-
-function buildSystemPrompt() {
-  return `You are a highly skilled and experienced Master Storyteller and Author, renowned for crafting immersive, complex, and emotionally resonant narratives across various genres. Your current task is to write a complete serialized novel based precisely on the topic and genre provided by the user in their initial request.
-
-NARRATIVE CONCEPT & STYLE ADAPTATION:
-- Story Topic: ${userInputs.topic}
-- Genre: ${userInputs.theme}
-- Language: ${userInputs.language}
-- Tone and Style: ${userInputs.style}
-- Atmosphere/Vibe: ${userInputs.vibe}
-
-SERIALIZATION SYSTEM:
-The complete story must be delivered in exactly ${userInputs.length} distinct parts. Each part will be numbered sequentially (e.g., 1/${userInputs.length}, 2/${userInputs.length}, etc.).
-
-PREVIOUS STORY CONTEXT:
-${summaries.join('\n\n')}
-
-USER FEEDBACK FROM LAST CHAPTER:
-- What they liked: ${feedback.liked}
-- What they wanted changed: ${feedback.disliked}
-(Incorporate this feedback while maintaining story consistency)
-
-CURRENT CHAPTER: ${currentChapter}/${userInputs.length}
-
-OUTPUT:
-Write approximately 2000 words of high-quality story content that advances the plot, develops characters, maintains the specified style and atmosphere, incorporates user feedback, and builds toward the overall story conclusion. Do not format the output in any way, just provide the story text. At the end, provide a detailed summary for future context building (separate from main content, but do not format it as a heading or section).`;
-}
-
-async function generateChapter() {
-  if (isGenerating) return;
-  isGenerating = true;
-  showLoading(true);
-  renderChapterHeader(currentChapter, userInputs.length);
-  renderMessageBubble('Writing your story...', 'system');
-  try {
-    const prompt = buildSystemPrompt();
-    const response = await fetch(GEMINI_ENDPOINT + `?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      })
-    });
-    const data = await response.json();
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
-      throw new Error('No story content received.');
-    }
-    let storyText = data.candidates[0].content.parts[0].text || '';
-    let summary = '';
-    // Try to split summary from story
-    const summaryMatch = storyText.match(/Summary:(.*)$/s);
-    if (summaryMatch) {
-      summary = summaryMatch[1].trim();
-      storyText = storyText.replace(/Summary:(.*)$/s, '').trim();
-    }
-    chapters.push(storyText);
-    summaries.push(summary);
-    // Remove loading bubble
-    const chatArea = document.getElementById('chat-area');
-    const systemBubbles = chatArea.querySelectorAll('.bubble-system');
-    systemBubbles.forEach(b => b.remove());
-    renderChapterHeader(currentChapter, userInputs.length);
-    renderMessageBubble(storyText, 'ai');
-    renderWordCount(storyText.split(/\s+/).length);
-    renderProgressBar(currentChapter, userInputs.length);
-    showLoading(false);
-    isGenerating = false;
-    if (currentChapter < userInputs.length) {
-      renderFeedbackForm();
-    } else {
-      renderMessageBubble('The story is complete! Thank you for reading.', 'system');
-      // Save to history
-      history.unshift({
-        topic: userInputs.topic,
-        theme: userInputs.theme,
-        language: userInputs.language,
-        style: userInputs.style,
-        vibe: userInputs.vibe,
-        length: userInputs.length,
-        chapters: [...chapters]
-      });
-      localStorage.setItem('bookHistory', JSON.stringify(history));
-      renderHistory();
-    }
-  } catch (err) {
-    showLoading(false);
-    isGenerating = false;
-    showError('Error generating story. Please try again.');
-  }
-}
-
-function renderFeedbackForm() {
-  const chatArea = document.getElementById('chat-area');
-  const form = document.createElement('form');
-  form.className = 'feedback-form';
-  form.innerHTML = `
-    <div class="input-row">
-      <label class="input-label">What did you like?</label>
-      <input type="text" class="input-field" id="liked" placeholder="Share what you liked" />
-    </div>
-    <div class="input-row">
-      <label class="input-label">What would you improve?</label>
-      <input type="text" class="input-field" id="disliked" placeholder="Share what could be better" />
-    </div>
-    <button type="submit" class="button">Generate Next Chapter</button>
-  `;
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    feedback.liked = form.querySelector('#liked').value.trim();
-    feedback.disliked = form.querySelector('#disliked').value.trim();
-    form.remove();
-    currentChapter++;
-    generateChapter();
-  };
-  chatArea.appendChild(form);
-}

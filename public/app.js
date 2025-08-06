@@ -1,8 +1,7 @@
 // Story Generator Chat App
-// Gemini 2.5 Flash Thinking API integration
+// Secure API integration via Render backend
 
-const GEMINI_API_KEY = '';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_ENDPOINT = 'https://cognibook-geminiapi.onrender.com/api/generate';
 
 
 const inputPrompts = [
@@ -254,18 +253,18 @@ async function generateChapter() {
   renderMessageBubble('Writing your story...', 'system');
   try {
     const prompt = buildSystemPrompt();
-    const response = await fetch(GEMINI_ENDPOINT + `?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(GEMINI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        prompt: prompt
       })
     });
     const data = await response.json();
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
+    if (!data.text) {
       throw new Error('No story content received.');
     }
-    let fullText = data.candidates[0].content.parts[0].text || '';
+    let fullText = data.text;
     let storyText = fullText;
     let summary = '';
     // Try to split summary from story using multiple possible separators

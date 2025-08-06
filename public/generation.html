@@ -3,11 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Story Generation</title>
+  <title>Cognibook – Generate Your Book</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      background: var(--bg-gradient, linear-gradient(135deg, #0f2027 0%, #2f7e4f 60%, #00e676 100%));
+      color: var(--text-main, #eafff7);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .gen-layout {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    .gen-sidebar {
+      width: 340px;
+      background: var(--card-bg, rgba(20,40,30,0.85));
+      border-right: 2px solid var(--green-main, #00e676);
+      box-shadow: 0 0 24px #00e67622;
+      display: flex;
+      flex-direction: column;
+      padding: 2rem 1.2rem 1.2rem 1.2rem;
+      gap: 1.2rem;
+      z-index: 2;
+      overflow-y: auto;
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--green-main, #00e676);
+      margin-bottom: 1.2rem;
+    }
+    .sidebar-new-btn {
+      background: var(--green-main, #00e676);
+      color: #1a2a1a;
+      border: none;
+      border-radius: 1.5em;
+      padding: 0.5em 1.2em;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 0 12px #00e67688;
+      transition: background 0.2s, color 0.2s;
+    }
+    .sidebar-new-btn:hover {
+      background: var(--green-dark, #009e4f);
+      color: var(--green-light, #aaffd6);
+    }
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .history-item {
+      background: rgba(0,230,118,0.08);
+      border-radius: 1em;
+      margin-bottom: 0.7em;
+      padding: 1em 1em 0.7em 1em;
+      color: var(--text-main, #eafff7);
+      font-size: 1.05em;
+      box-shadow: 0 0 8px #00e67622;
+      border-left: 4px solid var(--green-main, #00e676);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .history-item:hover {
+      background: var(--green-light, #aaffd6);
+      color: #1a2a1a;
+    }
+    .gen-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      background: transparent;
+    }
+    .gen-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    .book-form-container {
+      width: 100%;
+      max-width: 420px;
+      margin: 1.5rem auto 0 auto;
+      background: var(--card-bg, rgba(20,40,30,0.85));
+      border-radius: 1.5em;
+      box-shadow: 0 0 24px #00e67622;
+      padding: 1.8em 1.5em 1.5em 1.5em;
+      border: 1.5px solid var(--green-main, #00e676);
+      backdrop-filter: blur(2px);
+      z-index: 1;
+      box-sizing: border-box;
+    }
+    .book-form-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--green-main, #00e676);
+      margin-bottom: 1em;
+      text-align: center;
+    }
+    .input-row {
+      margin-bottom: 0.9em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3em;
+    }
+    /* Override external style.css input-label styles */
+    .book-form-container label.input-label,
+    .feedback-form label.input-label,
+    label.input-label {
+      background: transparent !important;
+      color: #eafff7 !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+      margin-right: 0 !important;
+      font-size: 0.95em !important;
+      font-weight: 600 !important;
+      text-shadow: 0 0 4px rgba(234, 255, 247, 0.5) !important;
+      margin-bottom: 0.3em !important;
+      display: block !important;
+      box-shadow: none !important;
+    }
+    .input-label {
+      font-size: 0.95em !important;
+      color: #eafff7 !important;
+      font-weight: 600 !important;
+      text-shadow: 0 0 4px rgba(234, 255, 247, 0.5) !important;
+      margin-bottom: 0.3em !important;
+      display: block !important;
+    }
+    .book-form-container .input-label,
+    .feedback-form .input-label {
+      font-size: 0.95em !important;
+      color: #eafff7 !important;
+      font-weight: 600 !important;
+      text-shadow: 0 0 4px rgba(234, 255, 247, 0.5) !important;
+      margin-bottom: 0.3em !important;
+      display: block !important;
+    }
+    .input-field {
+      padding: 0.6em 0.9em;
+      border-radius: 0.8em;
+      border: 1.5px solid var(--green-main, #00e676);
+      background: rgba(26, 42, 26, 0.9);
+      color: var(--text-main, #eafff7);
+      font-size: 0.95em;
+      outline: none;
+      transition: border 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .input-field:focus {
+      border: 1.5px solid var(--green-light, #aaffd6);
+      background: rgba(26, 42, 26, 1);
+    }
+    .input-field::placeholder {
+      color: rgba(170, 255, 214, 0.6);
+    }
+    .generate-btn {
+      width: 100%;
+      background: var(--green-main, #00e676);
+      color: #1a2a1a;
+      border: none;
+      border-radius: 1.2em;
+      padding: 0.7em 0;
+      font-size: 1.1em;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 0 12px #00e67688;
+      margin-top: 0.8em;
+      transition: background 0.2s, color 0.2s;
+    }
+    .generate-btn:hover {
+      background: var(--green-dark, #009e4f);
+      color: var(--green-light, #aaffd6);
+    }
+    .chapter-scroll {
+      flex: 1;
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+      background: transparent;
+      overflow-y: auto;
+      padding: 2em 2em 2em 2em;
+      border-radius: 2em;
+      box-shadow: 0 0 24px #00e67622;
+      z-index: 1;
+    }
+    .chapter-message {
+      background: var(--card-bg, rgba(20,40,30,0.85));
+      border-radius: 1.2em;
+      padding: 1.5em 2em;
+      color: var(--text-main, #eafff7);
+      font-size: 1.15em;
+      box-shadow: 0 0 8px #00e67622;
+      margin-bottom: 1.2em;
+      white-space: pre-line;
+      word-break: break-word;
+    }
+    .chapter-header {
+      font-size: 1.3em;
+      font-weight: 700;
+      color: var(--green-main, #00e676);
+      margin-bottom: 0.7em;
+      margin-top: 1.2em;
+    }
+    .feedback-form {
+      margin-top: 2em;
+      background: var(--card-bg, rgba(20,40,30,0.85));
+      border-radius: 1.2em;
+      padding: 1.2em 2em;
+      box-shadow: 0 0 8px #00e67622;
+      border-left: 4px solid var(--green-main, #00e676);
+      display: flex;
+      flex-direction: column;
+      gap: 1em;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    @media (max-width: 1100px) {
+      .gen-layout {
+        flex-direction: column;
+      }
+      .gen-sidebar {
+        width: 100vw;
+        min-height: 180px;
+        max-height: 220px;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 1.2rem 0.7rem 1.2rem 0.7rem;
+      }
+      .gen-main {
+        height: calc(100vh - 220px);
+      }
+    }
+    @media (max-width: 700px) {
+      .gen-sidebar {
+        width: 100vw;
+        min-height: 120px;
+        max-height: 160px;
+        padding: 0.7rem;
+      }
+      .book-form-container, .chapter-scroll {
+        padding: 1.2em 1em;
+        max-width: 90vw;
+        margin: 1rem auto 0 auto;
+      }
+      .generate-btn {
+        padding: 0.6em 0;
+        font-size: 1em;
+      }
+      .book-form-title {
+        font-size: 1.4rem;
+      }
+      .input-label {
+        font-size: 0.9em;
+      }
+      .input-field {
+        font-size: 0.9em;
+        padding: 0.55em 0.8em;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="generation-app"></div>
+  <div class="gen-layout">
+    <aside class="gen-sidebar">
+      <div class="sidebar-header">
+        <span>Book History</span>
+        <button class="sidebar-new-btn" id="new-book-btn">+ New Book</button>
+      </div>
+      <ul class="history-list" id="history-list"></ul>
+    </aside>
+    <main class="gen-main">
+      <div class="gen-center">
+        <div class="book-form-container" id="book-form-container"></div>
+        <div class="chapter-scroll" id="chapter-scroll" style="display:none;"></div>
+      </div>
+    </main>
+  </div>
   <script src="generation.js"></script>
 </body>
 </html>
