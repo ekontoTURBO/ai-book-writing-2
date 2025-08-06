@@ -1,8 +1,9 @@
 // Story Generator Chat App
 // Gemini 2.5 Flash Thinking API integration
 
-const GEMINI_API_KEY = 'AIzaSyBpBc5dNQzOgm8se_neUXwPGxS2_Nk9rRU';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-thinking-exp-1219:generateContent';
+const GEMINI_API_KEY = '';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
 
 const inputPrompts = [
   { key: 'topic', label: "What's your story about?" },
@@ -14,12 +15,12 @@ const inputPrompts = [
 ];
 
 let userInputs = {};
-let currentInputIndex = 0;
 let chapters = [];
 let summaries = [];
 let currentChapter = 1;
 let feedback = { liked: '', disliked: '' };
 let isGenerating = false;
+let history = [];
 
 const appContainer = document.getElementById('app-container');
 const chatArea = document.getElementById('chat-area');
@@ -44,49 +45,116 @@ function scrollToBottom() {
   }, 300);
 }
 
-function renderInputBubble(prompt, value = '') {
-  inputForm.innerHTML = '';
-  const bubble = document.createElement('div');
-  bubble.className = 'input-bubble';
-
-  const label = document.createElement('div');
-  label.className = 'input-label';
-  label.textContent = prompt.label;
-
-  const input = document.createElement('input');
-  input.className = 'input-field';
-  input.type = 'text';
-  input.value = value;
-  input.placeholder = prompt.label;
-  input.required = true;
-  input.autofocus = true;
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitInput(input.value.trim());
-    }
-  });
-
-  bubble.appendChild(label);
-  bubble.appendChild(input);
-  inputForm.appendChild(bubble);
-  input.focus();
+function renderMainPage() {
+  appContainer.innerHTML = `
+    <div class="main-layout">
+      <div class="main-welcome">
+        <h1>Welcome to Story Generator</h1>
+        <p class="subtitle">Create immersive serialized stories with AI. Enter your preferences and let the AI craft a novel for you, chapter by chapter.</p>
+        <ul class="welcome-info">
+          <li>Powered by Gemini 2.5 Flash Thinking model</li>
+          <li>Responsive, distraction-free reading experience</li>
+          <li>Book history saved locally for easy access</li>
+          <li>Feedback system to guide the story direction</li>
+          <li>Green-themed, modern chat interface</li>
+        </ul>
+        <button id="start-btn" class="button">Start Generating</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('start-btn').onclick = () => {
+    window.location.href = 'generation.html';
+  };
 }
 
-function submitInput(value) {
-  if (!value) return;
-  const prompt = inputPrompts[currentInputIndex];
-  userInputs[prompt.key] = value;
-  renderMessageBubble(value, 'user');
-  currentInputIndex++;
-  if (currentInputIndex < inputPrompts.length) {
-    setTimeout(() => renderInputBubble(inputPrompts[currentInputIndex]), 400);
-  } else {
-    inputForm.innerHTML = '';
-    setTimeout(() => startStoryGeneration(), 500);
+function renderHistory() {
+  const historyList = document.getElementById('history-list');
+  if (!historyList) return;
+  historyList.innerHTML = '';
+  if (history.length === 0) {
+    historyList.innerHTML = '<li class="empty">No books generated yet.</li>';
+    return;
   }
-  scrollToBottom();
+  history.forEach((item, idx) => {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+    li.innerHTML = `<strong>${item.topic}</strong> <span>(${item.length} chapters)</span>`;
+    li.onclick = () => showHistoryBook(idx);
+    historyList.appendChild(li);
+  });
 }
+
+function showHistoryBook(idx) {
+  const book = history[idx];
+  appContainer.innerHTML = `
+    <div class="main-layout">
+      <div class="main-welcome">
+        <h1>${book.topic}</h1>
+        <p class="subtitle">${book.theme} | ${book.language} | ${book.style} | ${book.vibe}</p>
+        <button id="back-btn" class="button">Back</button>
+      </div>
+      <aside class="history-sidebar">
+        <h2>Book History</h2>
+        <ul id="history-list"></ul>
+      </aside>
+    </div>
+    <main id="chat-area"></main>
+  `;
+  document.getElementById('back-btn').onclick = renderMainPage;
+  renderHistory();
+  const chatArea = document.getElementById('chat-area');
+  book.chapters.forEach((chapter, i) => {
+    const header = document.createElement('div');
+    header.className = 'chapter-header';
+    header.textContent = `Chapter ${i+1} of ${book.length}`;
+    chatArea.appendChild(header);
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble bubble-ai';
+    bubble.innerHTML = chapter;
+    chatArea.appendChild(bubble);
+  });
+}
+
+function renderInputForm() {
+  appContainer.innerHTML = `
+    <div class="main-layout">
+      <main id="chat-area"></main>
+      <aside class="history-sidebar">
+        <h2>Book History</h2>
+        <ul id="history-list"></ul>
+      </aside>
+    </div>
+    <form id="input-form" class="full-form">
+      ${inputPrompts.map(p => `
+        <div class="input-row">
+          <label for="${p.key}" class="input-label">${p.label}</label>
+          <input type="text" id="${p.key}" name="${p.key}" class="input-field" required />
+        </div>
+      `).join('')}
+      <button type="submit" class="button">Generate Story</button>
+    </form>
+    <div id="loading-indicator" class="hidden">
+      <span>Writing your story<span class="dots"></span></span>
+    </div>
+    <div id="error-message" class="hidden"></div>
+  `;
+  renderHistory();
+  document.getElementById('input-form').onsubmit = handleFormSubmit;
+}
+
+function handleFormSubmit(e) {
+  e.preventDefault();
+  userInputs = {};
+  inputPrompts.forEach(p => {
+    userInputs[p.key] = document.getElementById(p.key).value.trim();
+  });
+  chapters = [];
+  summaries = [];
+  currentChapter = 1;
+  feedback = { liked: '', disliked: '' };
+  startStoryGeneration();
+}
+
 
 function renderMessageBubble(text, sender = 'ai', options = {}) {
   const bubble = document.createElement('div');
@@ -130,6 +198,7 @@ function renderWordCount(words) {
   wc.textContent = `Word count: ${words} | ~${Math.ceil(words/250)} min read`;
 }
 
+
 function startStoryGeneration() {
   hideError();
   chapters = [];
@@ -137,6 +206,7 @@ function startStoryGeneration() {
   currentChapter = 1;
   feedback = { liked: '', disliked: '' };
   renderProgressBar(0, userInputs.length);
+  document.getElementById('chat-area').innerHTML = '';
   generateChapter();
 }
 
@@ -195,19 +265,46 @@ async function generateChapter() {
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts) {
       throw new Error('No story content received.');
     }
-    let storyText = data.candidates[0].content.parts[0].text || '';
+    let fullText = data.candidates[0].content.parts[0].text || '';
+    let storyText = fullText;
     let summary = '';
-    // Try to split summary from story
-    const summaryMatch = storyText.match(/Summary:(.*)$/s);
-    if (summaryMatch) {
-      summary = summaryMatch[1].trim();
-      storyText = storyText.replace(/Summary:(.*)$/s, '').trim();
+    // Try to split summary from story using multiple possible separators
+    // 1. English or Polish 'Summary' keyword
+    // 2. ---
+    // 3. **Summary for future context building:**
+    // 4. *Summary for future context building:*
+    // 5. Newline + bullet points
+    let summaryIdx = -1;
+    let summaryRegexes = [
+      /\n\s*Summary for future context building:?\s*\*?\*?(.*)$/is,
+      /\n\s*Summary:?\s*\*?\*?(.*)$/is,
+      /---\s*\n(.*)$/is,
+      /\n\s*Podsumowanie:?\s*\*?\*?(.*)$/is,
+      /\n\s*\*\s*Podsumowanie(.*)$/is
+    ];
+    for (let rx of summaryRegexes) {
+      let m = fullText.match(rx);
+      if (m) {
+        summary = m[1].trim();
+        summaryIdx = m.index;
+        storyText = fullText.substring(0, m.index).trim();
+        break;
+      }
+    }
+    // Fallback: if summary still not found, try to split at first bullet point after a long story
+    if (!summary && fullText.length > 1000) {
+      let bulletIdx = fullText.indexOf('\n* ');
+      if (bulletIdx > 0) {
+        storyText = fullText.substring(0, bulletIdx).trim();
+        summary = fullText.substring(bulletIdx).trim();
+      }
     }
     chapters.push(storyText);
     summaries.push(summary); // Only store summary for next prompt, do not display
     // Remove loading bubble
-    const systemBubbles = chatArea.querySelectorAll('.bubble-system');
+    const systemBubbles = document.getElementById('chat-area').querySelectorAll('.bubble-system');
     systemBubbles.forEach(b => b.remove());
+    renderChapterHeader(currentChapter, userInputs.length);
     renderMessageBubble(storyText, 'ai');
     renderWordCount(storyText.split(/\s+/).length);
     renderProgressBar(currentChapter, userInputs.length);
@@ -217,6 +314,17 @@ async function generateChapter() {
       renderFeedbackForm();
     } else {
       renderMessageBubble('The story is complete! Thank you for reading.', 'system');
+      // Save to history
+      history.unshift({
+        topic: userInputs.topic,
+        theme: userInputs.theme,
+        language: userInputs.language,
+        style: userInputs.style,
+        vibe: userInputs.vibe,
+        length: userInputs.length,
+        chapters: [...chapters]
+      });
+      renderHistory();
     }
   } catch (err) {
     showLoading(false);
@@ -267,5 +375,6 @@ function renderFeedbackForm() {
   inputForm.appendChild(nextButton);
 }
 
+
 // Initial render
-renderInputBubble(inputPrompts[0]);
+window.onload = renderMainPage;
