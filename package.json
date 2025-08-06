@@ -1,0 +1,12 @@
+{
+  "name": "story-generator-chat-app",
+  "version": "1.0.0",
+  "description": "Modern chat-style story generator using Gemini 2.5 Flash Thinking API.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {}
+}

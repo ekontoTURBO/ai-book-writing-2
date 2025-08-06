@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Story Generator Chat App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app-container">
+    <header class="app-header">
+      <h1>Story Generator</h1>
+      <p class="subtitle">Create immersive serialized stories with AI</p>
+    </header>
+    <main id="chat-area">
+      <!-- Chat bubbles and story will appear here -->
+    </main>
+    <form id="input-form" autocomplete="off">
+      <!-- Dynamic input bubbles will be rendered here -->
+    </form>
+    <div id="loading-indicator" class="hidden">
+      <span>Writing your story<span class="dots"></span></span>
+    </div>
+    <div id="error-message" class="hidden"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
